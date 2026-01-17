@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.npm-cache/
+
+# Environment variables (CRITICAL - contains API keys)
+.env
+.env.local
+.env*.local
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test results and temporary files
+discovery-results.json
+integration-test-results.json
+*-test-results.json
+*-test-results.md
+ENV_CONFIGURATION_ANALYSIS.md
+CONNECTIVITY_TEST_RESULTS.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# PDFs (if generated locally)
+*.pdf
+certificates/
+
+# Vercel
+.vercel
+
+
+

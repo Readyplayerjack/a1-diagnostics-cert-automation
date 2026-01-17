@@ -16,6 +16,8 @@ export interface RecordSuccessParams {
   ticketNumber: number;
   /** Jifeline customer ID */
   customerId: string;
+  /** Garage ID for multi-tenant isolation */
+  garageId: string;
   /** URL to the generated certificate PDF (optional, will be filled later) */
   certificateUrl?: string | null;
   /** Optional snapshot of key data for debugging/auditing */
@@ -32,6 +34,8 @@ export interface RecordFailureParams {
   ticketNumber: number;
   /** Jifeline customer ID */
   customerId: string;
+  /** Garage ID for multi-tenant isolation */
+  garageId: string;
   /** Error message describing what went wrong */
   errorMessage: string;
   /** Optional snapshot of key data for debugging/auditing */
@@ -90,7 +94,7 @@ export class ProcessedTicketsRepository {
    * @throws {DatabaseError} If the database insert fails (e.g., duplicate ticket_id)
    */
   async recordSuccess(params: RecordSuccessParams): Promise<void> {
-    const { ticketId, ticketNumber, customerId, certificateUrl, rawPayload } = params;
+    const { ticketId, ticketNumber, customerId, garageId, certificateUrl, rawPayload } = params;
 
     try {
       await query(
@@ -99,16 +103,18 @@ export class ProcessedTicketsRepository {
           ticket_id,
           ticket_number,
           customer_id,
+          garage_id,
           processed_at,
           certificate_url,
           status,
           raw_payload
-        ) VALUES ($1, $2, $3, NOW(), $4, 'success', $5)
+        ) VALUES ($1, $2, $3, $4, NOW(), $5, 'success', $6)
         `,
         [
           ticketId,
           ticketNumber,
           customerId,
+          garageId,
           certificateUrl ?? null,
           rawPayload ? JSON.stringify(rawPayload) : null,
         ]
@@ -118,6 +124,7 @@ export class ProcessedTicketsRepository {
         ticketId,
         ticketNumber,
         customerId,
+        garageId,
         status: 'success',
         hasCertificateUrl: !!certificateUrl,
       });
@@ -161,6 +168,7 @@ export class ProcessedTicketsRepository {
       ticketId,
       ticketNumber,
       customerId,
+      garageId,
       errorMessage,
       rawPayload,
       status = 'failed',
@@ -173,16 +181,18 @@ export class ProcessedTicketsRepository {
           ticket_id,
           ticket_number,
           customer_id,
+          garage_id,
           processed_at,
           status,
           error_message,
           raw_payload
-        ) VALUES ($1, $2, $3, NOW(), $4, $5, $6)
+        ) VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7)
         `,
         [
           ticketId,
           ticketNumber,
           customerId,
+          garageId,
           status,
           errorMessage,
           rawPayload ? JSON.stringify(rawPayload) : null,
@@ -193,6 +203,7 @@ export class ProcessedTicketsRepository {
         ticketId,
         ticketNumber,
         customerId,
+        garageId,
         status,
         errorMessage,
       });

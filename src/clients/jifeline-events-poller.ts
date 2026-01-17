@@ -147,6 +147,9 @@ export class JifelineEventsPoller {
       for (const event of response.result) {
         if (event.type === 'tickets.ticket.closed' && event.payload?.ticket?.id) {
           const ticket = event.payload.ticket;
+          if (!ticket) {
+            continue; // Skip if ticket is missing (shouldn't happen due to check above, but defensive)
+          }
 
           // Filter by date if since date provided
           if (since) {

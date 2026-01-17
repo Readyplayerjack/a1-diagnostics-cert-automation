@@ -33,7 +33,14 @@
     "test:integration": "dotenv -e .env -- tsx scripts/run-integration-tests.ts",
     "test:events": "dotenv -e .env -- tsx scripts/test-events-api.ts",
     "poll:tickets": "dotenv -e .env -- tsx scripts/poll-and-process-closed-tickets.ts",
-    "migrate": "dotenv -e .env -- tsx scripts/run-migration.ts"
+    "migrate": "dotenv -e .env -- tsx scripts/run-migration.ts",
+    "diagnostic:all": "dotenv -e .env -- tsx scripts/diagnostics/run-all.ts",
+    "diagnostic:apis": "dotenv -e .env -- tsx scripts/diagnostics/test-api-connections.ts",
+    "diagnostic:ticket": "dotenv -e .env -- tsx scripts/diagnostics/test-real-ticket.ts",
+    "diagnostic:gpt-prompt": "dotenv -e .env -- tsx scripts/diagnostics/audit-gpt-prompt.ts",
+    "diagnostic:validations": "dotenv -e .env -- tsx scripts/diagnostics/check-validations.ts",
+    "diagnostic:errors": "dotenv -e .env -- tsx scripts/diagnostics/test-error-handling.ts",
+    "diagnostic:security": "dotenv -e .env -- tsx scripts/diagnostics/audit-security-optimization.ts"
   },
   "keywords": [
     "diagnostics",

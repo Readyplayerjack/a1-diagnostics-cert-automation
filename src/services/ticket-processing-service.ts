@@ -90,6 +90,7 @@ export class TicketProcessingService {
           ticketId,
           ticketNumber: 0, // Unknown
           customerId: 'unknown',
+          garageId: 'unknown',
           errorMessage: `Ticket not found: ${ticketId}`,
           status: 'needs_review',
         });
@@ -101,6 +102,9 @@ export class TicketProcessingService {
 
     const ticketNumber = ticket.ticket_number;
     const customerId = ticket.customer_id ?? 'unknown';
+    // Extract garage_id from customer_id (for now, they're the same)
+    // TODO: When garage mapping is implemented, extract from customer metadata
+    const garageId = ticket.customer_id ?? 'unknown';
 
     // Step 3: Build CertificateData
     let certificateData: CertificateData;
@@ -122,6 +126,7 @@ export class TicketProcessingService {
           ticketId,
           ticketNumber,
           customerId,
+          garageId,
           errorMessage,
           status: 'needs_review',
           rawPayload: {
@@ -149,6 +154,7 @@ export class TicketProcessingService {
         ticketId,
         ticketNumber: certificateData.jobNumber,
         customerId: ticket.customer_id ?? 'unknown',
+        garageId,
         certificateUrl,
         rawPayload: {
           workshopName: certificateData.workshopName,
@@ -186,6 +192,7 @@ export class TicketProcessingService {
         ticketId,
         ticketNumber: certificateData.jobNumber,
         customerId: ticket.customer_id ?? 'unknown',
+        garageId,
         errorMessage: `PDF/Storage error: ${errorMessage}`,
         status: 'failed',
         rawPayload: {

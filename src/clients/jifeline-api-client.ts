@@ -16,6 +16,9 @@ import {
   JifelineAuthError,
 } from './jifeline-api-errors.js';
 import { error, warn } from '../services/logger.js';
+import { withTimeout, TimeoutError } from '../utils/with-timeout.js';
+import { retryWithBackoff, isRetryableError } from '../utils/retry.js';
+import { jifelineRateLimiter } from '../utils/rate-limiter.js';
 
 /**
  * OAuth2 token response structure.
@@ -77,8 +80,10 @@ export class JifelineApiClient {
   /**
    * Fetches an OAuth2 access token using client credentials.
    * Caches the token in memory and refreshes when expired.
+   * Protected with timeout and retry logic.
    * @returns A valid access token
    * @throws {JifelineAuthError} If token acquisition fails
+   * @throws {TimeoutError} If token acquisition exceeds 10 second timeout
    */
   private async getAccessToken(): Promise<string> {
     // Check if we have a valid cached token
@@ -86,66 +91,158 @@ export class JifelineApiClient {
       return this.cachedToken.accessToken;
     }
 
-    // Fetch new token
+    // Fetch new token with retry and timeout
+    // Flatten promise chain: define async function separately
+    const fetchTokenWithTimeout = async (): Promise<string> => {
+      // Create promise and await withTimeout on same logical flow
+      const tokenPromise = this.fetchAccessToken();
+      return await withTimeout(
+        tokenPromise,
+        10000, // 10 second timeout for token acquisition
+        'Jifeline OAuth token acquisition'
+      );
+    };
+
+    return await retryWithBackoff(fetchTokenWithTimeout, {
+      maxRetries: 3,
+      initialDelay: 1000,
+      maxDelay: 5000,
+      operation: 'Jifeline OAuth token acquisition',
+      isRetryable: (err) => {
+        // Don't retry auth errors (invalid credentials)
+        if (err instanceof JifelineAuthError) {
+          return false;
+        }
+        return isRetryableError(err);
+      },
+    });
+  }
+
+  /**
+   * Executes the actual token fetch (internal, used by getAccessToken()).
+   */
+  private async fetchAccessToken(): Promise<string> {
+    let response: Response;
     try {
-      const response = await fetch(this.config.JIFELINE_TOKEN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: this.config.JIFELINE_CLIENT_ID,
-          client_secret: this.config.JIFELINE_CLIENT_SECRET,
-        }),
-      });
+      response = await fetch(this.config.JIFELINE_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: this.config.JIFELINE_CLIENT_ID,
+        client_secret: this.config.JIFELINE_CLIENT_SECRET,
+      }),
+    });
 
-      if (!response.ok) {
-        const errorBody = await response.text().catch(() => 'Unknown error');
-        throw new JifelineAuthError(
-          `Failed to acquire access token: ${response.status} ${response.statusText}`,
-          errorBody
-        );
-      }
-
-      const tokenData = (await response.json()) as TokenResponse;
-      const expiresIn = tokenData.expires_in ?? 3600; // Default to 1 hour if not provided
-      // Refresh token 5 minutes before expiry
-      const expiresAt = Date.now() + (expiresIn - 300) * 1000;
-
-      this.cachedToken = {
-        accessToken: tokenData.access_token,
-        expiresAt,
-      };
-
-      return this.cachedToken.accessToken;
     } catch (error) {
       if (error instanceof JifelineAuthError) {
         throw error;
       }
-      throw new JifelineAuthError('Failed to acquire access token', error);
+      // Wrap network/fetch errors
+      throw new JifelineAuthError(
+        'Failed to acquire access token: network error',
+        error instanceof Error ? error.message : String(error)
+      );
     }
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => 'Unknown error');
+      throw new JifelineAuthError(
+        `Failed to acquire access token: ${response.status} ${response.statusText}`,
+        errorBody
+      );
+    }
+
+    let tokenData: TokenResponse;
+    try {
+      tokenData = (await response.json()) as TokenResponse;
+    } catch (error) {
+      throw new JifelineAuthError(
+        'Failed to parse token response',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+
+    const expiresIn = tokenData.expires_in ?? 3600; // Default to 1 hour if not provided
+    // Refresh token 5 minutes before expiry
+    const expiresAt = Date.now() + (expiresIn - 300) * 1000;
+
+    this.cachedToken = {
+      accessToken: tokenData.access_token,
+      expiresAt,
+    };
+
+    return this.cachedToken.accessToken;
   }
 
   /**
    * Centralized request helper that adds Authorization header, parses JSON,
    * and throws typed errors on non-2xx responses.
+   * Protected with rate limiting, retry logic, and timeout.
    * @param endpoint API endpoint path (relative to base URL)
    * @returns Parsed JSON response
    * @throws {JifelineNotFoundError} For 404 responses
    * @throws {JifelineClientError} For other 4xx responses
    * @throws {JifelineServerError} For 5xx responses
+   * @throws {TimeoutError} If request exceeds 30 second timeout
    */
   private async request<T>(endpoint: string): Promise<T> {
+    // Flatten promise chain: define async function separately
+    const executeWithTimeout = async (): Promise<T> => {
+      // Create promise and await withTimeout on same logical flow
+      const requestPromise = this.executeRequest<T>(endpoint);
+      return await withTimeout(
+        requestPromise,
+        30000, // 30 second timeout
+        `Jifeline API ${endpoint}`
+      );
+    };
+
+    const executeWithRetry = async (): Promise<T> => {
+      return await retryWithBackoff(executeWithTimeout, {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 10000,
+        operation: `Jifeline API ${endpoint}`,
+        isRetryable: (err) => {
+          // Don't retry 404s
+          if (err instanceof JifelineNotFoundError) {
+            return false;
+          }
+          // Retry timeouts and other retryable errors
+          return isRetryableError(err);
+        },
+      });
+    };
+
+    return await jifelineRateLimiter.throttle(executeWithRetry);
+  }
+
+  /**
+   * Executes the actual HTTP request (internal, used by request()).
+   */
+  private async executeRequest<T>(endpoint: string): Promise<T> {
     const token = await this.getAccessToken();
     const url = `${this.config.JIFELINE_API_BASE_URL}${endpoint}`;
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      // Wrap network/fetch errors
+      throw new JifelineApiError(
+        `Network error while calling ${endpoint}`,
+        0,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
 
     let responseBody: unknown;
     try {

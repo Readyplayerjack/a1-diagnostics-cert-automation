@@ -1,4 +1,9 @@
 import { loadConfig } from '../config/index.js';
+import { withTimeout, TimeoutError } from '../utils/with-timeout.js';
+import { retryWithBackoff, isRetryableError } from '../utils/retry.js';
+import { openaiRateLimiter, estimateTokens } from '../utils/rate-limiter.js';
+import { info, warn } from '../services/logger.js';
+import { validate, openAiExtractionResponseSchema } from '../utils/validation.js';
 
 export type OpenAiExtractionErrorCode =
   | 'OPENAI_CONFIG_ERROR'
@@ -83,7 +88,35 @@ export class HttpOpenAiExtractionClient implements OpenAiExtractionClient {
     params: OpenAiExtractionRequest
   ): Promise<OpenAiExtractionResponse> {
     const prompt = this.buildPrompt(params);
+    const estimatedTokens = estimateTokens(prompt);
 
+    return openaiRateLimiter.throttle(
+      async () => {
+        return retryWithBackoff(
+          async () => {
+            return withTimeout(
+              this.executeExtraction(prompt),
+              60000, // 60 second timeout for OpenAI (GPT can be slow)
+              'OpenAI extraction'
+            );
+          },
+          {
+            maxRetries: 3,
+            initialDelay: 2000, // Longer initial delay for OpenAI
+            maxDelay: 20000,
+            operation: 'OpenAI extraction',
+            isRetryable: isRetryableError,
+          }
+        );
+      },
+      estimatedTokens
+    );
+  }
+
+  /**
+   * Executes the actual OpenAI API call (internal, used by extractRegAndMileage()).
+   */
+  private async executeExtraction(prompt: string): Promise<OpenAiExtractionResponse> {
     const messages: ChatCompletionMessage[] = [
       {
         role: 'system',
@@ -124,14 +157,34 @@ export class HttpOpenAiExtractionClient implements OpenAiExtractionClient {
       );
     }
 
-    let data: ChatCompletionResponse;
+    let data: ChatCompletionResponse & { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } };
     try {
-      data = (await response.json()) as ChatCompletionResponse;
+      data = (await response.json()) as ChatCompletionResponse & {
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      };
     } catch (error) {
       throw new OpenAiExtractionError(
         'OPENAI_API_ERROR',
         'Failed to parse OpenAI API response as JSON'
       );
+    }
+
+    // Log token usage for cost monitoring (do NOT log prompt or response content)
+    if (data.usage) {
+      const tokensUsed = data.usage.total_tokens ?? 0;
+      const inputTokens = data.usage.prompt_tokens ?? 0;
+      const outputTokens = data.usage.completion_tokens ?? 0;
+      // Calculate estimated cost: $0.15/1M input, $0.60/1M output for gpt-4o-mini
+      const estimatedCost = (inputTokens / 1_000_000) * 0.15 + (outputTokens / 1_000_000) * 0.6;
+      
+      info('OpenAI API token usage', {
+        operation: 'extract_reg_mileage',
+        tokensUsed,
+        inputTokens,
+        outputTokens,
+        estimatedCostUSD: estimatedCost.toFixed(6),
+        // Do NOT log: prompt, response, extracted values (contains customer data)
+      });
     }
 
     const content = data.choices[0]?.message?.content;
@@ -153,7 +206,19 @@ export class HttpOpenAiExtractionClient implements OpenAiExtractionClient {
       };
     }
 
-    return parsed;
+    // Validate the parsed response against schema
+    try {
+      const validated = validate(openAiExtractionResponseSchema, parsed);
+      return validated;
+    } catch (validationError) {
+      warn('OpenAI response validation failed', {
+        operation: 'extract_reg_mileage',
+        error: validationError instanceof Error ? validationError.message : String(validationError),
+        // Do NOT log parsed content (contains customer data)
+      });
+      // Return parsed anyway (graceful degradation)
+      return parsed;
+    }
   }
 
   private buildPrompt(params: OpenAiExtractionRequest): string {

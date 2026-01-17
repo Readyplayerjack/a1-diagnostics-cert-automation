@@ -188,6 +188,7 @@ export default async function handler(
 
       // If not success, check if it was recorded as needs_review
       // Query the database to check status
+      // Dynamic import is properly awaited to avoid floating promise
       const { query } = await import('../clients/database.js');
       const result = await query<{ status: string }>(
         `

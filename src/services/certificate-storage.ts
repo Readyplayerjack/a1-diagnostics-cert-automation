@@ -1,5 +1,7 @@
 import { supabaseClient } from '../clients/supabase-client.js';
 import { error, info } from './logger.js';
+import { withTimeout, TimeoutError } from '../utils/with-timeout.js';
+import { retryWithBackoff, isRetryableError } from '../utils/retry.js';
 
 const CERTIFICATES_BUCKET = 'certificates';
 
@@ -69,6 +71,41 @@ export class SupabaseCertificateStorage implements CertificateStorage {
     // Path should NOT include bucket name - Supabase .from(bucket) already specifies the bucket
     const path = `${ticketNumber}-${ticketId}.pdf`;
 
+    return retryWithBackoff(
+      async () => {
+        return await withTimeout(
+          this.executeUpload(ticketId, ticketNumber, bucket, path, buffer),
+          10000, // 10 second timeout for Supabase operations
+          `Supabase storage upload ${path}`
+        );
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 10000,
+        operation: `Supabase storage upload ${path}`,
+        isRetryable: (err) => {
+          // Don't retry storage errors (permissions, bucket missing)
+          if (err instanceof CertificateStorageError && err.code === 'UPLOAD_FAILED') {
+            // Check if it's a retryable error (network, timeout)
+            return isRetryableError(err.originalError);
+          }
+          return isRetryableError(err);
+        },
+      }
+    );
+  }
+
+  /**
+   * Executes the actual upload operation (internal, used by saveCertificatePdf()).
+   */
+  private async executeUpload(
+    ticketId: string,
+    ticketNumber: number,
+    bucket: string,
+    path: string,
+    buffer: Buffer
+  ): Promise<string> {
     try {
       const { error: uploadError } = await this.client.storage.from(bucket).upload(path, buffer, {
         contentType: 'application/pdf',

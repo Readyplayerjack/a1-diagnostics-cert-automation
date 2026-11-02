@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-11-02 — PM message #2 answers + Prompt #4: daily sets and GET /api/daily (PLAN item 4)
+
+**Shipped**
+- Docs: CLAUDE.md hard rule 9 clarified and new hard rule 13 (wording, 13+, no prizes); "Game rules" and "Privacy" sections; new commands. PLAN item 4 marked done; item 12 gains a "re-run against REAL Supabase" checkbox.
+- `config/game.ts`: LAUNCH_DATE, PRIOR_UNSEEN, did-you-mean limits, DAILY_REUSE_DAYS, DAILY_CHECK_DAYS, CATEGORY_KEYS, rate limits, retention, minimum age. `config/brand.ts`: "Evens", category labels, API error strings, `formatOdds`.
+- `lib/time.ts`: gameDate, londonMidnight, endOfGameDay, nextRollover, secondsUntilRollover, gameNumber, plus date helpers.
+- Content schema updated to the PM rules.
+- `lib/daily-schedule.ts` and `scripts/daily-schedule.ts`, `daily-check.ts`, `daily-store.ts`, `db.ts`; commands `pnpm daily:schedule` and `pnpm daily:check`.
+- `lib/daily-schema.ts`, `lib/server/daily.ts`, `app/api/daily/route.ts`, `app/api/daily/[date]/route.ts`.
+- Tests: time (54), scheduler (11, fixture of 42 fake prompts), daily API (23), banned-word guard, PM expected-value scoring cases, content rule updates; DB leak test `supabase/tests/daily.test.ts`.
+
+**Verified:** see the build-session report (lint, typecheck, unit tests, build; DB tests on Postgres 16; CLI end to end; route smoke test on `next start`).
+
+**Not verified:** route handlers through supabase-js against a real Supabase Data API (layer 2 of the leak test); `supabase start`/`db reset`. Pushing: no LONGSHOT remote exists yet.
+
 ## 2026-11-02 — PLAN item 3 (part): content format, validator and seeder
 
 **Shipped**

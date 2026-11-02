@@ -1,0 +1,8 @@
+node_modules
+.next
+pnpm-lock.yaml
+coverage
+supabase/.temp
+next-env.d.ts
+# Shared-memory docs are kept verbatim
+*.md

@@ -1,0 +1,6 @@
+onlyBuiltDependencies:
+  - esbuild
+  - supabase
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver

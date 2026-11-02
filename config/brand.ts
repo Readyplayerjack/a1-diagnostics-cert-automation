@@ -4,7 +4,7 @@
  *
  * Client-safe: no secrets, no answer data.
  */
-import { ODDS_DISPLAY_CAP } from "./game";
+import { formatOdds } from "../lib/scoring";
 
 /** A colour with explicit light- and dark-mode values (hex, #RRGGBB). */
 export type ModeColor = { readonly light: `#${string}`; readonly dark: `#${string}` };
@@ -52,14 +52,6 @@ const contrastPairs = [
   { fg: "oxblood", bg: "slip" },
   { fg: "paper", bg: "racingGreen" },
 ] as const satisfies ReadonlyArray<{ fg: ColorToken; bg: ColorToken }>;
-
-/** Format a numeric "X" as display odds "X/1", rounded and capped. */
-function formatOdds(x: number): string {
-  if (!Number.isFinite(x) || x < 1) {
-    throw new RangeError(`odds must be a finite number >= 1, got ${x}`);
-  }
-  return `${Math.min(Math.round(x), ODDS_DISPLAY_CAP)}/1`;
-}
 
 function assertDay(day: number): void {
   if (!Number.isInteger(day) || day < 1) {

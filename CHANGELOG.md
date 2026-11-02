@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-11-02 — PLAN item 2: Normalisation + scoring library
+
+**Shipped**
+- `lib/normalise.ts`: `normalise` and `singularise` (NFKC, diacritic folding, lowercase, & → and, apostrophes, punctuation, whitespace, one leading article, per-word simple plurals).
+- `lib/scoring.ts`: `pHat`, `oddsX`, `formatOdds`, `points`, `bandFor`, `scoreValid`, `scoreInvalid`, implementing the CLAUDE.md formula with constants from `config/game.ts`.
+- `config/brand.ts` share text now uses the shared `formatOdds`.
+- Tests: `tests/normalise.test.ts` and `tests/scoring.test.ts` (134 new tests; 186 total). Coverage is 100% statements, branches, functions and lines for both modules. Mutation spot-checks also fail as they should: floor instead of round fails 2 scoring tests; dropping the -sses rule fails 1 normalise test.
+
+**Verified:** lint, typecheck, test (186/186), build and format:check all pass.
+
+**Still open from item 1:** local Supabase verification (Docker images blocked in the cloud session) and pushing to GitHub (no repo access yet; the plan is a new dedicated repo).
+
 ## 2026-11-02 — Prompt #1: Foundations (PLAN item 1)
 
 **Shipped**

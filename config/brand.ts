@@ -4,7 +4,7 @@
  *
  * Client-safe: no secrets, no answer data.
  */
-import { formatOdds } from "../lib/scoring";
+import { type CategoryKey, ODDS_DISPLAY_CAP } from "./game";
 
 /** A colour with explicit light- and dark-mode values (hex, #RRGGBB). */
 export type ModeColor = { readonly light: `#${string}`; readonly dark: `#${string}` };
@@ -52,6 +52,21 @@ const contrastPairs = [
   { fg: "oxblood", bg: "slip" },
   { fg: "paper", bg: "racingGreen" },
 ] as const satisfies ReadonlyArray<{ fg: ColorToken; bg: ColorToken }>;
+
+const evens = "Evens";
+
+/**
+ * Display odds for a raw X (as in "X/1"): rounded, capped at ODDS_DISPLAY_CAP,
+ * and shown as "Evens" when it rounds to 1. The single place odds are formatted;
+ * lib/scoring uses it too.
+ */
+function formatOdds(x: number): string {
+  if (!Number.isFinite(x) || x < 1) {
+    throw new RangeError(`odds must be a finite number >= 1, got ${x}`);
+  }
+  const rounded = Math.min(Math.round(x), ODDS_DISPLAY_CAP);
+  return rounded === 1 ? evens : `${rounded}/1`;
+}
 
 function assertDay(day: number): void {
   if (!Number.isInteger(day) || day < 1) {
@@ -102,6 +117,15 @@ export const brand = {
   socialHandle: null,
   /** Ordered from most common answers (index 0) to rarest. Thresholds: config/game.ts. */
   bands: ["Favourite", "Fancied", "Outsider", "Longshot", "Rank Outsider"],
+  /** Display labels for category keys (config/game.ts CATEGORY_KEYS). */
+  categories: {
+    food_drink: "Food & drink",
+    places: "Places",
+    tv_radio: "TV & radio",
+    sport: "Sport",
+    first_names: "First names",
+    everyday_britain: "Everyday Britain",
+  } satisfies Record<CategoryKey, string>,
   colors,
   contrastPairs,
   strings: {
@@ -111,7 +135,15 @@ export const brand = {
     tagline,
     footer: "New prompts every day at midnight, UK time.",
     disclaimer: "The odds are just for fun. No stakes, no money, ever.",
+    evens,
+    dailyUnavailable: "Today's prompts aren't quite ready. Give it a minute and try again.",
+    badDate: "That doesn't look like a date. Use YYYY-MM-DD.",
+    dayNotFound: "There are no prompts for that day.",
+    notLaunched: "We're still in the paddock. The first race is coming soon.",
+    rateLimited: "Steady on! You're going a bit fast. Take a breather and try again shortly.",
+    ageRequirement: "You need to be 13 or over to play.",
   },
+  formatOdds,
   share: {
     shareText,
     ogTitle,

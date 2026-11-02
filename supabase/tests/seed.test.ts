@@ -62,15 +62,15 @@ describe("applySeedPlan", () => {
     const report = await applySeedPlan(db, buildSeedPlan([file]));
     expect(report).toMatchObject({
       prompts: 1,
-      answers: 20,
-      aliasesInserted: 21,
+      answers: 25,
+      aliasesInserted: 26,
       aliasConflicts: [],
     });
     expect(
       await count("select count(*)::text n from public.canonical_answers where prompt_id = $1"),
-    ).toBe(20);
+    ).toBe(25);
     expect(await count("select count(*)::text n from public.aliases where prompt_id = $1")).toBe(
-      21,
+      26,
     );
   });
 
@@ -79,9 +79,9 @@ describe("applySeedPlan", () => {
     expect(report.aliasesInserted).toBe(0);
     expect(
       await count("select count(*)::text n from public.canonical_answers where prompt_id = $1"),
-    ).toBe(20);
+    ).toBe(25);
     expect(await count("select count(*)::text n from public.aliases where prompt_id = $1")).toBe(
-      21,
+      26,
     );
   });
 
@@ -105,12 +105,12 @@ describe("applySeedPlan", () => {
       ...file,
       text: "Name a fixture used only in tests, edited",
       answers: file.answers
-        .slice(0, 19) // drop the last answer from the file
+        .slice(0, 24) // drop the last answer from the file
         .map((a, i) =>
-          i === 1 ? { ...a, aliases: ["FA two"] } : i === 2 ? { ...a, prior: 0.03 } : a,
+          i === 1 ? { ...a, aliases: ["FA two"] } : i === 2 ? { ...a, prior: 0.02 } : a,
         ),
     });
-    // 19 answers fails content rules, but applySeedPlan works on any plan; build it directly.
+    // 24 answers fails content rules, but applySeedPlan works on any plan; build it directly.
     const report = await applySeedPlan(db, buildSeedPlan([edited]));
     expect(report.orphanAnswers).toHaveLength(1);
     expect(report.aliasConflicts).toHaveLength(1);
@@ -131,6 +131,6 @@ describe("applySeedPlan", () => {
     await db.query("rollback");
     expect(p.rows[0]?.text).toBe("Name a fixture used only in tests, edited");
     expect(merged.rows[0]?.status).toBe("merged");
-    expect(prior.rows[0]?.prior_p).toBe("0.03");
+    expect(prior.rows[0]?.prior_p).toBe("0.02");
   });
 });

@@ -15,10 +15,11 @@ Provisional score is instant; scores finalise at 00:00 Europe/London. Next day t
 6. plays and play_answers are append-only for clients. Counts are aggregated server-side.
 7. All branding lives in /config/brand.ts: name, strings, band labels, colours, share text, OG text. Renaming the game must only require editing that file.
 8. No ads, no consent managers, no third-party trackers. Analytics are first-party, cookieless and aggregate.
-9. Content comes from open data only: Wikidata (CC0), ONS baby names (OGL v3.0, credited), Wikipedia text only with CC BY-SA attribution. Reject prompts with one obvious correct answer.
+9. Answer lists come from open data (Wikidata CC0; ONS OGL v3.0, credited; Wikipedia text only with CC BY-SA attribution, and only when a prompt needs it) OR are original writing by us (human-written, or LLM-drafted then human-reviewed; licence "original"). Never copy from copyrighted lists, other games or scraped data. Reject prompts with one obvious correct answer. No alcohol brands and no gambling/betting brands (pubs as places/names are fine).
 10. Every rejected answer carries a plain-English reason. Unseen answers are judged, never silently scored 0.
 11. The LLM provider sits behind /lib/llm.ts. Cache every verdict, and only call it for first-seen normalised strings.
 12. Finish Phase 1 fully before Phase 2. Don't build ahead of PLAN.md.
+13. Not gambling, ever. Banned in UI copy: bet, wager, stake, punt, bookie, bookmaker, win money, payout, cash, jackpot, odds-on, tips (enforced by tests/branding-guard.test.ts over /app, /components and brand.ts strings; the only exemption is the mandatory disclaimer's negation "No stakes"). Prefer: back an answer, long shot, the field, form, outsider, favourite. Minimum age 13+. The "just for fun" disclaimer stays visible on play and result screens. No prizes of any kind, ever; no paid feature may ever affect scores.
 
 ## Stack
 Next.js (App Router), TypeScript strict, Tailwind CSS, Vercel Pro · Supabase Postgres + pgvector + pg_trgm, Supabase CLI for local dev · pnpm · Vitest (unit/integration) · Playwright (e2e, from the UI phase) · Cloudflare Turnstile (later Phase 1 prompt)
@@ -44,6 +45,23 @@ points = clamp(round(10 * log2(1 / p_hat)), 0, 100)
 Invalid answer = 0 points + reason.
 Bands (labels in brand.ts, point thresholds in game.ts): Favourite, Fancied, Outsider, Longshot, Rank Outsider.
 
+## Game rules (PM-confirmed 2026-11-02; constants in /config/game.ts)
+- c and N include the player's own answer (provisional and final use the same rule; the first player sees c=1, N=1).
+- N counts VALID answers only. Blank and invalid answers score 0 with a reason and are excluded from N.
+- Out of time: 0 points, reason "Out of time — no answer given.", auto-advance.
+- "Did you mean?": at most 1 per question; server-side pause ≤ 10 s; the player can only accept or decline (no retyping); declining sends the original answer to the judge.
+- A play belongs to the London date it started on; its per-question tokens stay valid until they expire, even after midnight.
+- Game number: LAUNCH_DATE (game.ts, placeholder) is #1.
+- A brand-new answer accepted mid-day gets prior PRIOR_UNSEEN = 0.002.
+- Odds that round to 1 display as brand.strings.evens ("Evens").
+- Daily total = sum of 5 answers, 0–500, shown as "340 pts".
+- Players see only their OWN unique answers plus top answers from the curated canonical list; no other player's text is ever published.
+- Rate limits (constants now, implementation items 5/11): 30 req/min per device_id and 120 req/min per IP on play endpoints; >15 new device_ids per IP in 24 h → Turnstile on next play start; /api/daily is CDN-cached with no app-level limit; over limit → 429 with a brand string.
+
+## Privacy
+- device_id is personal data (UK GDPR). Raw answer text is kept RAW_ANSWER_RETENTION_DAYS (90) days, then only the normalised form/answer_id.
+- Minimum age 13+. Privacy notice: PM drafts before launch, owner gets it checked (ICO data protection fee likely applies).
+
 ## Matching pipeline
 1. Normalise: NFKC, lowercase, strip punctuation and leading articles, collapse whitespace, simple plurals
 2. Exact alias lookup within the prompt
@@ -67,7 +85,9 @@ Verified 2026-11-02 (Node 22, pnpm 10). Items marked * need Docker + Supabase im
 - `pnpm db:reset` * — `supabase db reset` (re-applies migrations + seed.sql)
 - `pnpm content:validate` — validate every /content/prompts/*.json (exit 1 on problems)
 - `pnpm seed` — seed approved prompts (`--include-drafts`, `--dry-run`); DB from SUPABASE_DB_URL or `supabase status`
-- `pnpm test:db` — all database tests (RLS + seeder); same DB requirements as test:rls
+- `pnpm daily:schedule --from YYYY-MM-DD --days N [--seed S] [--reuse-days 60] [--dry-run]` — fill missing daily sets (never alters existing dates, never past dates)
+- `pnpm daily:check` — exit 1 if any of the next 7 London days lacks a published set
+- `pnpm test:db` — all database tests (RLS + seeder + daily endpoints leak test); same DB requirements as test:rls
 - `pnpm test:rls` — RLS/privilege tests against a running database (reads `supabase status`). DB layer verified on Postgres 16 + pgvector; the PostgREST/anon-key layer * needs `pnpm db:start`. Postgres without the Supabase API: `SUPABASE_DB_URL=postgres://... RLS_DB_ONLY=1 pnpm test:rls`
 
 ## Conventions

@@ -57,3 +57,95 @@ describe("branding guard", () => {
     expect(findViolations(ROOT)).toEqual([]);
   });
 });
+
+/**
+ * Gambling-optics guard (CLAUDE.md hard rule 13). Banned in UI copy: bet, wager,
+ * stake, punt, bookie, bookmaker, win money, payout, cash, jackpot, odds-on, tips.
+ * Whole words incl. simple inflections, case-insensitive.
+ */
+export const BANNED_UI_WORDS =
+  /\b(?:bet(?:s|ting)?|wager(?:s|ed|ing)?|stak(?:e|es|ed|ing)|punt(?:s|er|ers|ing)?|bookies?|bookmakers?|win(?:ning)?\s+money|payouts?|cash|jackpots?|odds-on|tips|tipsters?)\b/i;
+
+/**
+ * The one sanctioned exception: the mandatory disclaimer (Prompt #1) negates
+ * stakes ("No stakes, no money, ever."). Flagged to the PM; change it there.
+ */
+const EXEMPT_STRINGS = new Set<string>([brand.strings.disclaimer]);
+
+function brandStrings(value: unknown, path: string, out: Array<[string, string]>): void {
+  if (typeof value === "string") out.push([path, value]);
+  else if (Array.isArray(value)) value.forEach((v, i) => brandStrings(v, `${path}[${i}]`, out));
+  else if (value && typeof value === "object" && path !== "brand.colors") {
+    for (const [k, v] of Object.entries(value)) brandStrings(v, `${path}.${k}`, out);
+  }
+}
+
+export function findBannedWords(root: string): string[] {
+  const hits: string[] = [];
+  for (const file of ["app", "components"].flatMap((d) => walk(join(root, d)))) {
+    readFileSync(file, "utf8")
+      .split("\n")
+      .forEach((line, i) => {
+        const m = BANNED_UI_WORDS.exec(line);
+        if (m) hits.push(`${relative(root, file)}:${i + 1} "${m[0]}"`);
+      });
+  }
+  const strings: Array<[string, string]> = [];
+  brandStrings(brand, "brand", strings);
+  // Generated copy too, from representative inputs.
+  strings.push(
+    ["share.shareText", brand.share.shareText({ day: 12, longestOdds: 212, points: 340 })],
+    ["share.ogTitle", brand.share.ogTitle({ day: 12 })],
+    ["share.ogDescription", brand.share.ogDescription({ longestOdds: 1, points: 0 })],
+  );
+  for (const [path, s] of strings) {
+    if (EXEMPT_STRINGS.has(s)) continue;
+    const m = BANNED_UI_WORDS.exec(s);
+    if (m) hits.push(`${path} "${m[0]}"`);
+  }
+  return hits;
+}
+
+describe("banned gambling wording (hard rule 13)", () => {
+  it("matches the banned words and their inflections, not innocent words", () => {
+    for (const w of [
+      "bet",
+      "Betting",
+      "wager",
+      "stakes",
+      "punter",
+      "bookie",
+      "Bookmakers",
+      "win money",
+      "payout",
+      "CASH",
+      "jackpot",
+      "odds-on",
+      "tips",
+    ]) {
+      expect(BANNED_UI_WORDS.test(w), w).toBe(true);
+    }
+    for (const w of [
+      "between",
+      "better",
+      "alphabet",
+      "abet",
+      "cashew",
+      "cache",
+      "steak",
+      "tip",
+      "outsider",
+      "favourite",
+      "long shot",
+      "the field",
+      "back an answer",
+      "form",
+    ]) {
+      expect(BANNED_UI_WORDS.test(w), w).toBe(false);
+    }
+  });
+
+  it("finds none in app/, components/ or brand.ts strings", () => {
+    expect(findBannedWords(ROOT)).toEqual([]);
+  });
+});

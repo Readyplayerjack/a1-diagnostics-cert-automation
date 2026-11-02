@@ -33,6 +33,25 @@ describe("config/game.ts", () => {
     for (const v of [10, 15, 30, 85]) expect(game.BAND_THRESHOLDS).not.toContain(v);
   });
 
+  it("has the PM-specified constants (message #2 answers)", () => {
+    expect(game.LAUNCH_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(game.PRIOR_UNSEEN).toBe(0.002);
+    expect(game.DID_YOU_MEAN_MAX_PER_QUESTION).toBe(1);
+    expect(game.DID_YOU_MEAN_MAX_PAUSE_SECONDS).toBe(10);
+    expect(game.DAILY_REUSE_DAYS).toBe(60);
+    expect(game.RATE_LIMIT_PLAY_PER_DEVICE_PER_MIN).toBe(30);
+    expect(game.RATE_LIMIT_PLAY_PER_IP_PER_MIN).toBe(120);
+    expect(game.TURNSTILE_NEW_DEVICES_PER_IP_PER_DAY).toBe(15);
+    expect(game.RAW_ANSWER_RETENTION_DAYS).toBe(90);
+    expect(game.MIN_PLAYER_AGE).toBe(13);
+    expect(game.CATEGORY_KEYS).toHaveLength(6);
+  });
+
+  it("every category key has a brand label", () => {
+    for (const key of game.CATEGORY_KEYS) expect(brand.categories[key]).toBeTruthy();
+    expect(Object.keys(brand.categories).sort()).toEqual([...game.CATEGORY_KEYS].sort());
+  });
+
   it("TIMEZONE is a valid IANA zone", () => {
     expect(() => new Intl.DateTimeFormat("en-GB", { timeZone: game.TIMEZONE })).not.toThrow();
   });
@@ -42,7 +61,9 @@ describe("config/game.ts", () => {
       const ok =
         typeof value === "number" ||
         typeof value === "string" ||
-        (Array.isArray(value) && value.every((v) => typeof v === "number"));
+        (Array.isArray(value) &&
+          ((value as unknown[]).every((v) => typeof v === "number") ||
+            (value as unknown[]).every((v) => typeof v === "string")));
       expect(ok, `${key} has an unexpected shape`).toBe(true);
     }
   });

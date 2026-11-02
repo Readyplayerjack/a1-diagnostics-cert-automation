@@ -38,7 +38,7 @@ describe("validatePromptFile", () => {
   it("rejects too few answers", () => {
     reject(
       makePromptFile({ answers: makePromptFile().answers.slice(0, 5) }),
-      /at least 20 answers/,
+      /at least 25 answers/,
     );
   });
 
@@ -49,9 +49,42 @@ describe("validatePromptFile", () => {
     reject(makePromptFile({ answers }), /one obvious answer/);
   });
 
-  it("rejects priors summing above 1", () => {
-    const answers = makePromptFile().answers.map((a) => ({ ...a, prior: 0.06 }));
-    reject(makePromptFile({ answers }), /priors sum to 1\.2/);
+  it("rejects priors summing above 0.9 (0.1 reserved for unexpected answers)", () => {
+    const under = makePromptFile().answers.map((a, i) => (i < 22 ? { ...a, prior: 0.04 } : a));
+    expect(validatePromptFile(makePromptFile({ answers: under })).ok).toBe(true); // 0.895
+    const over = makePromptFile().answers.map((a, i) => (i < 22 ? { ...a, prior: 0.041 } : a));
+    reject(makePromptFile({ answers: over }), /priors sum to 0\.9170 \(> 0\.9\)/);
+  });
+
+  it("requires at least 3 long shots (prior < 0.01)", () => {
+    const answers = makePromptFile().answers.map((a, i) => (i === 24 ? { ...a, prior: 0.01 } : a));
+    reject(makePromptFile({ answers }), /at least 3 answers with prior < 0\.01.*has 2/);
+  });
+
+  it("enforces category keys, prior_source and 80-character prompts", () => {
+    reject({ ...makePromptFile(), category: "Food" }, /category/);
+    reject(
+      {
+        ...makePromptFile(),
+        answers: makePromptFile().answers.map((a) => ({ ...a, prior_source: undefined })),
+      },
+      /prior_source/,
+    );
+    reject(makePromptFile({ text: "x".repeat(81) }), /text/);
+    expect(validatePromptFile(makePromptFile({ text: "x".repeat(80) })).ok).toBe(true);
+  });
+
+  it("accepts original writing without a url, but requires urls for open data", () => {
+    const original = makePromptFile({
+      sources: [{ name: "Original (team-written)", licence: "original", retrieved: "2026-11-02" }],
+    });
+    expect(validatePromptFile(original).ok).toBe(true);
+    reject(
+      makePromptFile({
+        sources: [{ name: "Wikidata", licence: "CC0-1.0", retrieved: "2026-11-02" }],
+      }),
+      /open-data sources need a url/,
+    );
   });
 
   it("rejects aliases that collide after normalisation, across answers", () => {
@@ -132,18 +165,18 @@ describe("buildSeedPlan", () => {
       {
         id: promptId("fixture-prompt"),
         text: file.text,
-        category: "test",
+        category: "everyday_britain",
         region: "GB",
         status: "draft",
       },
     ]);
-    expect(plan.answers).toHaveLength(20);
+    expect(plan.answers).toHaveLength(25);
     expect(plan.answers[0]).toEqual({
       id: answerId("fixture-prompt", "Fixture answer 1"),
       prompt_id: promptId("fixture-prompt"),
       label: "Fixture answer 1",
       wikidata_qid: null,
-      prior_p: 0.04,
+      prior_p: 0.03,
     });
     // label + 2 aliases all normalise to "fixture answer 1" → one alias row
     expect(plan.aliases.filter((a) => a.answer_id === plan.answers[0]?.id)).toEqual([

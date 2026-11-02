@@ -2,15 +2,17 @@ import type { PromptFile } from "@/lib/content/schema";
 
 /** A synthetic, schema-valid prompt file. Not real content. */
 export function makePromptFile(overrides: Partial<PromptFile> = {}): PromptFile {
-  const answers = Array.from({ length: 20 }, (_, i) => ({
+  // 22 × 0.03 + 3 long shots × 0.005 = 0.675 (≤ 0.9)
+  const answers = Array.from({ length: 25 }, (_, i) => ({
     label: `Fixture answer ${i + 1}`,
-    prior: 0.04,
+    prior: i < 22 ? 0.03 : 0.005,
+    prior_source: "manual" as const,
     aliases: [] as string[],
   }));
   return {
     slug: "fixture-prompt",
     text: "Name a fixture used only in tests",
-    category: "test",
+    category: "everyday_britain",
     region: "GB",
     status: "draft",
     sources: [

@@ -17,6 +17,7 @@ import {
   POINTS_MIN,
   type BandIndex,
 } from "@/config/game";
+import { brand } from "@/config/brand";
 
 export type RarityInput = {
   /** c_a: players who gave this answer. Integer, 0 ≤ c ≤ n. */
@@ -54,12 +55,8 @@ export function oddsX(p: number): number {
   return Math.min(Math.max(Math.round(1 / p), 1), ODDS_DISPLAY_CAP);
 }
 
-/** Format a raw odds value X as "X/1", rounded and capped. Used by share text too. */
-export function formatOdds(x: number): string {
-  if (!Number.isFinite(x) || x < 1)
-    throw new RangeError(`odds must be a finite number >= 1, got ${x}`);
-  return `${Math.min(Math.round(x), ODDS_DISPLAY_CAP)}/1`;
-}
+/** Format a raw odds value X for display ("33/1", or "Evens" at 1). Defined in brand.ts. */
+export const formatOdds = (x: number): string => brand.formatOdds(x);
 
 /** Points for a valid answer with smoothed probability p. */
 export function points(p: number): number {

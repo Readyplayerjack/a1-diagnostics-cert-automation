@@ -1,28 +1,43 @@
 /**
  * Prompt content file format (/content/prompts/<slug>.json) and its rules.
- * PROVISIONAL: thresholds below await the PM's content brief (PLAN item 3).
+ * Thresholds confirmed by the PM (message #2, answers 3–5).
  *
  * This module holds no answer data itself, but the files it validates do:
  * never import /content from /app or /components (enforced by a test).
  */
 import { z } from "zod";
+import { CATEGORY_KEYS } from "../../config/game";
 import { normalise } from "../normalise";
 
 export const CONTENT_RULES = {
   /** A prompt needs many plausible answers (hard rule 9). */
-  minAnswers: 20,
+  minAnswers: 25,
   /** No single "obvious" answer may dominate (hard rule 9). */
   maxSinglePrior: 0.35,
-  maxPromptChars: 120,
+  /** ~3 lines at large type on a 380px phone; readable in under 3 s. */
+  maxPromptChars: 80,
+  /** Priors sum to at most this; the rest is reserved for unexpected answers. */
+  maxPriorSum: 0.9,
+  /** A real long shot must exist: at least this many answers below rarePrior. */
+  minRareAnswers: 3,
+  rarePrior: 0.01,
 } as const;
 
-export const LICENCES = ["CC0-1.0", "OGL-UK-3.0", "CC-BY-SA-4.0"] as const;
+/**
+ * "original" = our own writing (human-written, or LLM-drafted then human-reviewed).
+ * Never copied from copyrighted lists, other games or scraped data (hard rule 9).
+ */
+export const LICENCES = ["CC0-1.0", "OGL-UK-3.0", "CC-BY-SA-4.0", "original"] as const;
+
+/** Where an answer's prior came from (PM answer 5). */
+export const PRIOR_SOURCES = ["wikidata_sitelinks", "ons_count", "manual"] as const;
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD");
 
 const sourceSchema = z.object({
   name: z.string().min(1),
-  url: z.url(),
+  /** Required for every licence except "original". */
+  url: z.url().optional(),
   licence: z.enum(LICENCES),
   retrieved: isoDate,
   /** Required for CC BY-SA (checked below); credited wording for OGL. */
@@ -36,6 +51,7 @@ const answerSchema = z.object({
     .regex(/^Q[0-9]+$/)
     .optional(),
   prior: z.number().gt(0).lte(1),
+  prior_source: z.enum(PRIOR_SOURCES),
   /** Extra spellings; normalised by the seeder. The label is always an alias. */
   aliases: z.array(z.string().trim().min(1)).default([]),
 });
@@ -44,7 +60,7 @@ export const promptFileSchema = z
   .object({
     slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "kebab-case slug"),
     text: z.string().trim().min(10).max(CONTENT_RULES.maxPromptChars),
-    category: z.string().trim().min(1),
+    category: z.enum(CATEGORY_KEYS),
     region: z.string().default("GB"),
     status: z.enum(["draft", "approved", "retired"]),
     review: z
@@ -69,10 +85,22 @@ export const promptFileSchema = z
       if (s.licence === "CC-BY-SA-4.0" && !s.attribution) {
         issue("CC BY-SA sources need attribution text", ["sources", i, "attribution"]);
       }
+      if (s.licence !== "original" && !s.url) {
+        issue("open-data sources need a url", ["sources", i, "url"]);
+      }
     });
 
     const priorSum = file.answers.reduce((sum, a) => sum + a.prior, 0);
-    if (priorSum > 1 + 1e-9) issue(`priors sum to ${priorSum.toFixed(4)} (> 1)`, ["answers"]);
+    if (priorSum > CONTENT_RULES.maxPriorSum + 1e-9) {
+      issue(`priors sum to ${priorSum.toFixed(4)} (> ${CONTENT_RULES.maxPriorSum})`, ["answers"]);
+    }
+    const rare = file.answers.filter((a) => a.prior < CONTENT_RULES.rarePrior).length;
+    if (rare < CONTENT_RULES.minRareAnswers) {
+      issue(
+        `needs at least ${CONTENT_RULES.minRareAnswers} answers with prior < ${CONTENT_RULES.rarePrior} (a real long shot), has ${rare}`,
+        ["answers"],
+      );
+    }
 
     const seenLabels = new Map<string, number>();
     const seenAliases = new Map<string, number>();

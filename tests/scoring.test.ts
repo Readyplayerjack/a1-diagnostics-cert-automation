@@ -53,7 +53,9 @@ describe("oddsX / formatOdds", () => {
   it("formats as X/1 with rounding and the cap", () => {
     expect(formatOdds(33)).toBe("33/1");
     expect(formatOdds(32.5)).toBe("33/1");
-    expect(formatOdds(1)).toBe("1/1");
+    expect(formatOdds(1)).toBe("Evens");
+    expect(formatOdds(1.49)).toBe("Evens");
+    expect(formatOdds(1.5)).toBe("2/1");
     expect(formatOdds(5000)).toBe("999/1");
     expect(() => formatOdds(0.9)).toThrow(RangeError);
     expect(() => formatOdds(Number.POSITIVE_INFINITY)).toThrow(RangeError);
@@ -130,7 +132,7 @@ describe("scoreValid / scoreInvalid", () => {
     expect(s.band).toBe(0);
     expect(scoreValid({ c: 1000, n: 1000, prior: 1 })).toMatchObject({
       points: 0,
-      oddsLabel: "1/1",
+      oddsLabel: "Evens",
     });
   });
 
@@ -175,7 +177,8 @@ describe("scoring invariants over a parameter grid", () => {
       expect(s.points).toBeLessThanOrEqual(POINTS_MAX);
       expect(s.oddsX).toBeGreaterThanOrEqual(1);
       expect(s.oddsX).toBeLessThanOrEqual(ODDS_DISPLAY_CAP);
-      expect(s.oddsLabel).toMatch(/^\d{1,3}\/1$/);
+      expect(s.oddsLabel).toMatch(/^(?:\d{1,3}\/1|Evens)$/);
+      expect(s.oddsLabel === "Evens").toBe(s.oddsX === 1);
       expect(s.band).toBe(bandFor(s.points));
     }
   });
@@ -213,5 +216,25 @@ describe("scoring invariants over a parameter grid", () => {
         prev = x;
       }
     }
+  });
+});
+
+describe("PM expected values (message #2, answer 6) — round half up", () => {
+  it.each([
+    // [prior, c, N, p_hat ≈, odds label, points]
+    [0.35, 1, 1, 0.3627, "3/1", 15],
+    [0.002, 1, 1, 0.02157, "46/1", 55],
+    [0.002, 1, 1000, 0.0010476, "955/1", 99],
+  ])("prior %f, c=%i, N=%i → p≈%f, %s, %i pts", (prior, c, n, p, label, pts) => {
+    const s = scoreValid({ c, n, prior });
+    expect(s.pHat).toBeCloseTo(p, 4);
+    expect(s.oddsLabel).toBe(label);
+    expect(s.points).toBe(pts);
+  });
+
+  it("odds that round to 1 display as Evens (brand.strings.evens)", () => {
+    const s = scoreValid({ c: 99, n: 100, prior: 0.35 });
+    expect(s.oddsX).toBe(1);
+    expect(s.oddsLabel).toBe("Evens");
   });
 });

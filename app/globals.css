@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/*
+ * Colour values come from /config/brand.ts: app/layout.tsx injects the
+ * --brand-* variables (see lib/theme.ts). Do not hard-code colours here.
+ */
+@theme inline {
+  --color-paper: var(--brand-paper);
+  --color-slip: var(--brand-slip);
+  --color-ink: var(--brand-ink);
+  --color-muted-ink: var(--brand-muted-ink);
+  --color-racing-green: var(--brand-racing-green);
+  --color-brass: var(--brand-brass);
+  --color-oxblood: var(--brand-oxblood);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+body {
+  background: var(--brand-paper);
+  color: var(--brand-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,2 @@
+-- Intentionally empty. Real prompt seeding arrives with PLAN item 3 (content + seeder).
+-- Kept so `supabase db reset` has a seed file to run.

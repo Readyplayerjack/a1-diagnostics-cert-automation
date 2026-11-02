@@ -65,6 +65,9 @@ Verified 2026-11-02 (Node 22, pnpm 10). Items marked * need Docker + Supabase im
 - `pnpm format` / `pnpm format:check` — Prettier (Markdown is excluded so these docs stay verbatim)
 - `pnpm db:start` * — `supabase start` (local stack in Docker)
 - `pnpm db:reset` * — `supabase db reset` (re-applies migrations + seed.sql)
+- `pnpm content:validate` — validate every /content/prompts/*.json (exit 1 on problems)
+- `pnpm seed` — seed approved prompts (`--include-drafts`, `--dry-run`); DB from SUPABASE_DB_URL or `supabase status`
+- `pnpm test:db` — all database tests (RLS + seeder); same DB requirements as test:rls
 - `pnpm test:rls` — RLS/privilege tests against a running database (reads `supabase status`). DB layer verified on Postgres 16 + pgvector; the PostgREST/anon-key layer * needs `pnpm db:start`. Postgres without the Supabase API: `SUPABASE_DB_URL=postgres://... RLS_DB_ONLY=1 pnpm test:rls`
 
 ## Conventions

@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-11-02 — PLAN item 3 (part): content format, validator and seeder
+
+**Shipped**
+- `lib/content/schema.ts` (format and rules), `lib/content/ids.ts` (UUID v5, RFC test vector passes), `lib/content/seed-plan.ts` (pure files → rows).
+- `scripts/seed-apply.ts`, `scripts/seed.ts` and `scripts/validate-content.ts`; new commands `pnpm content:validate`, `pnpm seed` and `pnpm test:db`.
+- `content/README.md` (format) and `content/LICENCES.md` (credits). The `content/prompts/` folder is empty, waiting for real prompts.
+- Tests: `tests/content.test.ts` (16, including an answer-leak guard proven to catch both `@/content` and relative `lib/content` imports from app/components) and `supabase/tests/seed.test.ts` (3 integration tests).
+
+**Verified:** 202/202 unit tests; lint, typecheck and build pass. Against Postgres 16 with all migrations: `test:db` gives 12 passed, plus 2 PostgREST tests skipped on purpose. CLI end to end: validate → seed (approved only: 0 rows) → `--include-drafts` (20 aliases) → rerun (0 new).
+
+**Not done:** the open-data drafting script and the 30 prompts. This needs the PM's content brief, and Wikidata, ONS and Wikipedia are all blocked by this session's network policy (connect_rejected).
+
 ## 2026-11-02 — PLAN item 2: Normalisation + scoring library
 
 **Shipped**

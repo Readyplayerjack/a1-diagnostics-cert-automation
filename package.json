@@ -9,11 +9,14 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:rls": "vitest run --config vitest.rls.config.mts",
+    "test:rls": "vitest run --config vitest.rls.config.mts supabase/tests/rls.test.ts",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:db": "vitest run --config vitest.rls.config.mts",
+    "content:validate": "tsx scripts/validate-content.ts",
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

@@ -2,7 +2,7 @@
 ## Phase 1 — MVP (finish fully before Phase 2)
 1.  [in progress] Foundations: scaffold, shared-memory files, brand/game config, schema, RLS — all done except verification on real local Supabase (`supabase start` / `db reset` / PostgREST layer of `test:rls`), blocked by container-registry access in the build session. Mark [done] once those pass on a Docker machine.
 2.  [done] Normalisation + scoring library (pure TS, exhaustively unit-tested)
-3.  Content: open-data drafting script, 30 reviewed UK prompts, seeder
+3.  [in progress] Content: open-data drafting script, 30 reviewed UK prompts, seeder — file format, validator and seeder done; drafting script + 30 prompts await the PM content brief and network access to Wikidata/ONS
 4.  Daily set publishing + GET /api/daily (static JSON from CDN, London rollover, BST/GMT tests)
 5.  Play API: start/answer/finish, signed per-prompt tokens, timing, rate limits
 6.  Matching steps 1–3 + judge stub + 100-case UK test set (≥90% target)

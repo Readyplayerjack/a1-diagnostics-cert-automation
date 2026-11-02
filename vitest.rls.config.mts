@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-/** RLS tests only. Requires a running local Supabase (pnpm db:start). */
+/** Database tests (RLS + seeder). Require a running database: pnpm db:start, or SUPABASE_DB_URL. */
 export default defineConfig({
   test: {
     include: ["supabase/tests/**/*.test.ts"],

@@ -8,19 +8,11 @@
  * Database URL: SUPABASE_DB_URL, else `supabase status` (local).
  * Refuses to run if ANY content file is invalid.
  */
-import { execSync } from "node:child_process";
-import pg from "pg";
 import { buildSeedPlan } from "../lib/content/seed-plan";
 import { loadPromptFiles } from "./content-files";
+import { dbUrl } from "./db";
+import pg from "pg";
 import { applySeedPlan } from "./seed-apply";
-
-function dbUrl(): string {
-  if (process.env.SUPABASE_DB_URL) return process.env.SUPABASE_DB_URL;
-  const out = execSync("pnpm exec supabase status -o env", { encoding: "utf8" });
-  const m = /^DB_URL="?([^"\n]+)"?$/m.exec(out);
-  if (!m?.[1]) throw new Error("No DB URL: set SUPABASE_DB_URL or run `pnpm db:start`.");
-  return m[1];
-}
 
 async function main(): Promise<void> {
   const args = new Set(process.argv.slice(2));

@@ -16,7 +16,9 @@
     "format:check": "prettier --check .",
     "test:db": "vitest run --config vitest.rls.config.mts",
     "content:validate": "tsx scripts/validate-content.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "daily:schedule": "tsx scripts/daily-schedule.ts",
+    "daily:check": "tsx scripts/daily-check.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
